@@ -96,7 +96,7 @@ tx_ETC <- ESTUDIANTES%>%group_by(ENTIDAD)%>%summarise(INSE=sum(INSE),
 
 ###########################################################################################################
 #### Selección de muestra control 
-ESTUDIANTES.MUESTRA<- ESTUDIANTES%>%filter(M.COTROL==1)
+ESTUDIANTES.MUESTRA<- ESTUDIANTES%>%filter(M.CONTROL==1)
 ###################################
 ## Exploratorio ##
 ###################################
@@ -112,7 +112,7 @@ ESTUDIANTES.MUESTRA<- ESTUDIANTES%>%filter(M.COTROL==1)
 ###################################
 #### Definir variables dummys######
 ###################################
-MUESTRA.DUMMYS<- subset(ESTUDIANTES.MUESTRA,select = -c(M.COTROL,SEXO,ZONA,SECTOR))
+MUESTRA.DUMMYS<- subset(ESTUDIANTES.MUESTRA,select = -c(M.CONTROL,SEXO,ZONA,SECTOR))
 
 SEXO<-as.character(ESTUDIANTES.MUESTRA$SEXO)
 SEXO[is.na(SEXO)] <-"Sexo.NA"
@@ -122,7 +122,7 @@ MUESTRA.DUMMYS<- data.frame(MUESTRA.DUMMYS,data.frame(Domains(SEXO)),
                  data.frame(Domains(ESTUDIANTES.MUESTRA$SECTOR)))
 
 ###########################################################################################################
- IE.RESULTADO<- ESTUDIANTES%>%dplyr::select(ID_INST,ENTIDAD,ZONA,SECTOR,M.COTROL,PROM.MAT,EE.MAT) %>%unique()
+ IE.RESULTADO<- ESTUDIANTES%>%dplyr::select(ID_INST,ENTIDAD,ZONA,SECTOR,M.CONTROL,PROM.MAT,EE.MAT) %>%unique()
 ###########################################################################################################
 rm(list = c("Class","ESTUDIANTES","ESTUDIANTES.MUESTRA","SEXO"))
 ###########################################################################################################
