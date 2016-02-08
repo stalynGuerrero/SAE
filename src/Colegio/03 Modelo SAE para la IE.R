@@ -1,4 +1,4 @@
-###########################################################################################################
+                                                       ###########################################################################################################
 ######## Paso previo "02 Seleccion de modelo SAE.r"                                                  ######
 ######## En el paso anterior se selecciono el modelo SAE que minimiza el ECM cuando se hacen         ######
 ######## predicciones, acontinuación de muestran los diferentes resultados para cada uno de los      ######
@@ -31,7 +31,7 @@ library(dplyr)
 require(mice)
 ###########################################################################################################
 ## Lectura de la base de datos de las IE con sus respectivas covariables 
-load("output/IE_2013.RData")
+load("output/IE_2013.2model.RData")
 ## Clasificar la base en dos grupos, 
 #  - SIN.IMPUTAR: La información en las covariables esta completa 
 #  - IMPUTAR:     La información en las covariables esta incompleta 
@@ -97,10 +97,26 @@ G2<-G2+facet_grid(. ~ M.CONTROL)+ggtitle("ESTIMADOR COMP")
 X11()
 G2
 
+X11()
+gridExtra::grid.arrange( G0,G1,G2, ncol=1)
+
+jpeg(filename = file.path("output/Colegios/Graficas/Resultado_covar_INSE/Fay.jpg"),width = 1200,height = 1200)
+gridExtra::grid.arrange( G1,G0,G2, ncol=1)
+dev.off()     
+
+ggsave(G0,filename = "output/Colegios/Graficas/Resultado_covar_INSE/Fay.GREG.jpg",width=15, height=12)
+ggsave(G1,filename = "output/Colegios/Graficas/Resultado_covar_INSE/Fay.HT.jpg",width=15, height=12)
+ggsave(G2,filename = "output/Colegios/Graficas/Resultado_covar_INSE/Fay.COMP.jpg",width=15, height=12)
 
 CME <- IE.RESULTADO %>%group_by(M.CONTROL)%>% summarise(
-  GREG =sum((PROM.MAT-Fay.GREG)^2,na.rm=T)/n(),
-  HT =sum((PROM.MAT-Fay.HT)^2,na.rm=T)/n(),
-  COMP =sum((PROM.MAT-Fay.Comp)^2,na.rm=T)/n())
-t(CME)
-sqrt(CME[,-1])
+  GREG =sqrt(sum((PROM.MAT-Fay.GREG)^2,na.rm=T)/n()),
+  HT =sqrt(sum((PROM.MAT-Fay.HT)^2,na.rm=T)/n()),
+  COMP =sqrt(sum((PROM.MAT-Fay.Comp)^2,na.rm=T)/n()))
+
+write.table(CME,file = "output/Colegios/Graficas/Resultado_covar_INSE/CME.txt",sep="\t",quote = FALSE,row.names = FALSE)
+
+IE.RESULTADO <-IE.RESULTADO%>%dplyr::select(ID_INST,ENTIDAD,M.CONTROL,PROM.MAT,Fay.GREG, Fay.HT,Fay.Comp)
+
+write.table(IE.RESULTADO,file = "output/Colegios/Promedios/Resultados.IE2.txt",sep="\t",quote = FALSE,row.names = FALSE)
+
+

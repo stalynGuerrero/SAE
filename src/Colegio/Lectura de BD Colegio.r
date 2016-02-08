@@ -92,15 +92,33 @@ IE_censal<-IE_censal%>% rename(ID_INST      = daneEstab,
                                EE.MAT        = Prom_ee_Mat_5,
                                N.EST         = n,
                                PESOS.ESTU    = weight,
-                               PESOS.ESTAB   = PesosEstab)
+                               PESOS.ESTAB   = PesosEstab,
+                               sanitari=sanitary)
 ###################################################################################################
 ## Seleccionar mejor modelo para a nivel de ETC
 
-xk <- c("ENTIDAD","ID_INST", "M.CONTROL","EduDad","EduMom", "floors"  , "walls","sanitary", "OverCr","dvd","cellPhone", "fridge",
+xk <- c("ENTIDAD","ID_INST", "M.CONTROL","EduDad","EduMom", "floors"  , "walls","sanitari", "OverCr","dvd","cellPhone", "fridge",
         "washMach", "heater", "microWave","soundEqui" , "car","books", "SEXO","ZONA","SECTOR","INSE")
 COVARIABLES <- IE_censal[,xk]
 
-source(file = "src/ETC/01 Seleccion de Modelo GREG por ETC.r")
+## source(file = "src/ETC/01 Seleccion de Modelo GREG por ETC.r")
+
+####### El resultado de la rutina anterior se obtienen los resultados 
+## - Model_1 
+##   - washMach
+##   - car
+
+## - Model_2
+##   - car+washMach
+
+
+COVAR_ <- c(colnames(IE_censal)[grepl("car",colnames(IE_censal))],
+           colnames(IE_censal)[grepl("washMach",colnames(IE_censal))],
+           "ENTIDAD")
+IE_censal<-IE_censal[,COVAR_]%>%group_by(ENTIDAD)%>%summarise_each(funs(sum))%>%merge(IE_censal,by="ENTIDAD")
+
+colnames(IE_censal)<-gsub(".y","",colnames(IE_censal)) 
+colnames(IE_censal)<-gsub(".x","_TX",colnames(IE_censal))
 
 ##################################################################################
 ###################################################################################################
@@ -108,7 +126,6 @@ source(file = "src/ETC/01 Seleccion de Modelo GREG por ETC.r")
 # - Las variables iniciales con las que se trabaja la calificación son las siguientes: 
 #    - ID_ETC
 #    - ID_INSTITUCION 
-#    - ID_ESTRATOS (ESTÉ SE OBTINE DEL DISEÑO MUESTRAL)
 #    - COVAR_ (EL PROMEDIO DEL AÑOS ANTERIORES EN MATEMÁTICAS, LENGUAJE,etc,INSE(O SUS VARIABLES))
 #    - TX_COVAR_ (TOTAL OBTENIDO PARA CADA UNA DE LAS COVARIABLES ANTERIORES)
 #    - PRMEDIO_SEP (EL PROMEDIO DEL GRADO SEPTIMO EN MATEMÁTICAS, LENGUAJE,etc)
@@ -116,6 +133,11 @@ source(file = "src/ETC/01 Seleccion de Modelo GREG por ETC.r")
 #    - PESO_ESTUD (FACTOR DE EXPANCION DE ESTUDIANTE DADO EL DISEÑO DE  MUESTREO)
 #
 ###################################################################################################
+names(IE_censal)
+IE_censal <- IE_censal[,c("ENTIDAD","ID_INST","CONSLECT","PROM.MAT","EE.MAT",
+                          "PESOS.ESTU","PESOS.ESTAB","M.CONTROL","V_PLAUS1",	"V_PLAUS2",	"V_PLAUS3",
+                          "V_PLAUS4",	"V_PLAUS5",COVAR_[-5],paste0(COVAR_[-5],"_TX"))]
 
-write.table(IE_censal,file = "input/Colegio/Base/ESTUDIANTES.CENSAL.txt",sep="\t",quote = FALSE)
+IE_censal$ID_INST <-as.character(IE_censal$ID_INST)
+write.table(IE_censal,file = "input/Colegio/Base/ESTUDIANTES.CENSAL.INSE.txt",sep="\t",row.names = FALSE)
 

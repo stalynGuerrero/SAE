@@ -9,7 +9,7 @@
 ###################################################################################################
 rm(list = ls())
 ## Definir el directorio de trabajo
-dirpath <- "C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/Resultados SAE"
+dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/"
 ## Definir subcarpetas
 inpath <- "/input"
 outpath <- "/output"
@@ -27,7 +27,6 @@ library(reshape2)
 library(sae)
 library(dplyr)
 require(mice)
-
 ##############################################################################################################################
 # Resultados de promedio por IE en las pruebas Saber 11 para el 2013
 SB11_2013 <- read.csv2("input/Colegio/Covariable/Resultados_Saber_11_2013.csv",sep = ";",
@@ -63,27 +62,28 @@ rm(list=c("IE_HIS", "SB11_2013"))
 ## Lectura de la base de datos que contiene la información estimada mediante jackknife de las varianzas por IE.
 ## esta se obtiene del codigo "01 Varianza.HT.GREG_IE.r"
 ##############################################################################################################################
-load("output/IE_2013.rdata")
+load("output/IE_2013.2model.rdata")
 #####################
 ## Lectura selección de los nombres de las covariables a emplear
 NOM_COV<-names(IE_COVARIABLE)[!names(IE_COVARIABLE)%in%c("ID_INSTITUCION","ESTADO")]
 ## Omitil algunas de esta
-NOM_COV<-NOM_COV[-c(5:6,14:15)]
+NOM_COV<-NOM_COV[!grepl(" ",NOM_COV)]
+
 ## Uniendo las variables respues y la covariable 
 IE.RESULTADO<-merge(IE.RESULTADO,IE_COVARIABLE,by.x = "ID_INST",by.y="ID_INSTITUCION",all.x = T)
 ## Seleccionar las IE que cuantan con la mayor cantidad de información para así poder hacer la selección de un modelo 
 ## SAE que sea adecuado para realizar pronosticos 
-IE.RESULTADO$SECTOR <- ifelse(IE.RESULTADO$SECTOR=="Oficial",1,0)
-IE.RESULTADO$ZONA <- ifelse(IE.RESULTADO$ZONA=="Rural",1,0)
+# IE.RESULTADO$SECTOR <- ifelse(IE.RESULTADO$SECTOR=="Oficial",1,0)
+# IE.RESULTADO$ZONA <- ifelse(IE.RESULTADO$ZONA=="Rural",1,0)
 IE.RESULTADO<-IE.RESULTADO%>%filter(!is.na(PROM.MAT)&ESTADO%in%c("COMPLETA","SIN UN DATO"))
 IE.RESULTADO$UNOS <- 1
 ## Seleccionando las IE que pertenecen a la muestra control 
-MUEST.CONTROL <- IE.RESULTADO%>%filter(M.COTROL==1)
-MUEST.CONTROL$ZONA <- as.factor(MUEST.CONTROL$ZONA)
-MUEST.CONTROL$SECTOR <- as.factor(MUEST.CONTROL$SECTOR)
+MUEST.CONTROL <- IE.RESULTADO%>%filter(M.CONTROL==1)
+# MUEST.CONTROL$ZONA <- as.factor(MUEST.CONTROL$ZONA)
+# MUEST.CONTROL$SECTOR <- as.factor(MUEST.CONTROL$SECTOR)
 MUEST.CONTROL <- na.omit(MUEST.CONTROL)
 
-NOM_COV<-c(NOM_COV,"ZONA","SECTOR" )
+#NOM_COV<-c(NOM_COV,"ZONA","SECTOR" )
 
 SEL.MODEL<-function(x){  
 xk <- paste0("MUEST.CONTROL$",x,collapse = "+")
@@ -161,5 +161,28 @@ Model.Propuestos<- rbind(Model.Propuestos,
                          SEL.MODEL(c("LENGUAJE_3_2013", "LENGUAJE_9_2013", "MATEMÁTICAS_3_2013", "MATEMÁTICAS_9_2013", "MATEMÁTICAS_5_2012")))
 
 
-###########################################################################
-## Cuando se términa la rutina se determina que el modelo debe contar con las covariables 
+
+######################################################################################################
+## El resultado de la rutina anterior es una base que contiene el siguente conjunto de variables #####
+##                                                                                               #####
+##                  GREG = UNOS + LENGUAJE_3_2013+"LENGUAJE_9_2013+MATEMÁTICAS_3_2013+           #####
+##                                MATEMÁTICAS_9_2013+MATEMÁTICAS_5_2012                          #####
+######################################################################################################
+IE.RESULTADO<-IE.RESULTADO %>% dplyr::select(ID_INST,ENTIDAD,M.CONTROL,PROM.MAT,EE.MAT,ESTADO,
+                               ## Promedios y desviaciones  estimadas por ETC
+                               PROM.greg.ETC,  Sd.greg.PROM,
+                               PROM.HT.ETC,    Sd.HT.PROM,
+                               ## Promedios y desviaciones  estimadas por IE
+                               greg.PROM.IE,   greg.SD,
+                               HT.PROM.IE  ,   HT.SD,
+                               Med.Comp_C3 ,   Sd.Comp_C3,
+                               Med.Comp_C3 ,   Sd.Comp_C3,
+                               ## Covariables del Modelo SAE
+                               UNOS, LENGUAJE_3_2013    , LENGUAJE_9_2013, 
+                               MATEMÁTICAS_3_2013 , MATEMÁTICAS_9_2013, 
+                               MATEMÁTICAS_5_2012)
+
+
+save(IE.RESULTADO, file = file.path("output/IE_2013.2model.RData"))
+
+#############################################################################################
