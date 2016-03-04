@@ -3,3 +3,6 @@
 .RData
 *.txt*
 *.csv*
+*.RData*
+*.rdata*
+*.Rdata*
