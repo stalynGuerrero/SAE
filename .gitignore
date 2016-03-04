@@ -4,5 +4,11 @@
 *.Rdata
 *.txt*
 *.csv*
+<<<<<<< HEAD
 *.xlsx
 *.xls
+=======
+*.RData*
+*.rdata*
+*.Rdata*
+>>>>>>> fcd7bcc5cff3686144e327296b296da9506a57d0
