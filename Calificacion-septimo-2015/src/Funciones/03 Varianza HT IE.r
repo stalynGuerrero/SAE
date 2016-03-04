@@ -20,25 +20,28 @@ Var.jk.IE <- function(x,V_PLAUS=NULL,ee.V_PLAUS=NULL){
   if(is.null(ee.V_PLAUS)) {ee.V_PLAUS<-paste0("eepv",1:5)}
   
 # Estiamdo el promedio mediante los estimadores Horvitz-Thompson (HT) y GREG  para una IE
-  bar.HT   <- colSums(x[["PESOS.ESTU"]]*x[,V_PLAUS])/sum(x[["PESOS.ESTU"]])
-  bar.greg <- colSums(x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]])
+  bar.HT   <- (x[["PESOS.ESTU"]]*x[,V_PLAUS])/sum(x[["PESOS.ESTU"]])
+  bar.greg <- (x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]])
   
-  theta1<-colSums(x[,"pesos.greg"]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,"pesos.greg"],na.rm = T)
-  theta0<-colSums(x[,"PESOS.ESTU"]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,"PESOS.ESTU"],na.rm = T)
+  theta1<-sum(x[,"pesos.greg"]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,"pesos.greg"],na.rm = T)
+  theta0<-sum(x[,"PESOS.ESTU"]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,"PESOS.ESTU"],na.rm = T)
   
   n <- nrow(x)
   if(n<6){return(data.frame(greg = cbind(PROM.IE =NA,PROM.sd=NA,JK.sd=NA,SD=NA),
                             HT   = cbind(PROM.IE =NA,PROM.sd=NA,JK.sd=NA,SD=NA)))}
   a <- (n-1)/n
-  theta <- data.frame(theta1=NA,theta2=NA,theta3=NA,theta4=NA,theta5=NA)
-  theta2 <- data.frame(theta1=NA,theta2=NA,theta3=NA,theta4=NA,theta5=NA)
+  theta<-paste0("theta<-data.frame(",paste0("theta",1:length(V_PLAUS),sep="=NA",collapse = ","),")")
+  eval(parse(text=theta))
+  theta2<-paste0("theta2<-data.frame(",paste0("theta",1:length(V_PLAUS),sep="=NA",collapse = ","),")")
+  eval(parse(text=theta2))
+  
   for (i in 1:n){
-    theta[i,]<-colSums(x[-i,"pesos.greg"]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,"pesos.greg"],na.rm = T)
-    theta2[i,]<-colSums(x[-i,"PESOS.ESTU"]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,"PESOS.ESTU"],na.rm = T)
+    theta[i,]<-sum(x[-i,"pesos.greg"]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,"pesos.greg"],na.rm = T)
+    theta2[i,]<-sum(x[-i,"PESOS.ESTU"]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,"PESOS.ESTU"],na.rm = T)
   }
   
-  theta1 <-matrix(rep(theta1,n),byrow = T,ncol=5) 
-  theta0 <-matrix(rep(theta0,n),byrow = T,ncol=5) 
+  theta1 <-matrix(rep(theta1,n),byrow = T,ncol=1) 
+  theta0 <-matrix(rep(theta0,n),byrow = T,ncol=1) 
   
   diff2<-a*(theta-theta1)^2
   sd.greg=sqrt(mean(colSums(diff2))) 
@@ -46,12 +49,12 @@ Var.jk.IE <- function(x,V_PLAUS=NULL,ee.V_PLAUS=NULL){
   diff2<-a*(theta2-theta0)^2
   sd.HT=sqrt(mean(colSums(diff2))) 
   
-  data.frame(greg=cbind(PROM.IE   =  mean(bar.greg),  # Promedio de la IE
+  data.frame(greg=cbind(PROM.IE   =  sum(bar.greg),  # Promedio de la IE
                         PROM.sd   =  sd(bar.greg),    # Desviacion Estándar de entre las media
                         JK.sd     =  sd.greg,         # 
                         SD        =  sqrt(sd.greg^2+1.2*var(bar.greg))),
              
-             HT = cbind(PROM.IE   =  mean(bar.HT),
+             HT = cbind(PROM.IE   =  sum(bar.HT),
                         PROM.sd   =  sd(bar.HT),
                         JK.sd     =  sd.HT,
                         SD        =  sqrt(sd.HT^2+1.2*var(bar.HT))))
@@ -98,14 +101,14 @@ E.GREG.IE <- function(BD.ESTUDIANTES,V_PLAUS,ETC,xk,txk,...){
   
 ## Recalculando los pesos de los estudiantes por ETC, usando los txk.
   gkl <- calib(cbind(x[,xk]),d = x[["PESOS.ESTU"]],
-               total=as.numeric(tx[,xk]),max_iter=10000, ...)
+               total=as.numeric(tx[,xk]),max_iter=10000, method="linear")
 # Definir los pesos GREG
   x$pesos.greg<-x[["PESOS.ESTU"]]*gkl 
 # Estiamdo el promedio de mediante los estimadores Horvitz-Thompson (HT) y GREG 
-  bar.HT   <- colSums(x[["PESOS.ESTU"]]*x[,V_PLAUS])/sum(x[["PESOS.ESTU"]])
-  bar.greg <- colSums(x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]])
-  salida   <-  data.frame(PROM.greg.ETC   = mean(bar.greg),   Sd.greg.PROM = sd(bar.greg),
-                          PROM.HT.ETC     = mean(bar.HT),     Sd.HT.PROM   = sd(bar.HT))
+  bar.HT   <- ((x[["PESOS.ESTU"]])*x[,V_PLAUS])/sum(x[["PESOS.ESTU"]])
+  bar.greg <- (x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]])
+  salida   <-  data.frame(PROM.greg.ETC   = sum(bar.greg),   Sd.greg.PROM = sd(bar.greg),
+                          PROM.HT.ETC     = sum(bar.HT),     Sd.HT.PROM   = sd(bar.HT))
 # Calculando los errores del modelo de regresión 
   for(i in 1:length(V_PLAUS)){
   texto <- paste0("x$eepv",i,"=residuals(lm(",V_PLAUS[i],"~.-1,data=x[,c(V_PLAUS[",i,"],xk)],weights = x[['PESOS.ESTU']]))")
@@ -116,7 +119,7 @@ E.GREG.IE <- function(BD.ESTUDIANTES,V_PLAUS,ETC,xk,txk,...){
 # Estimar la Varianza Jackknife para las IE dentro de la ETC
   sd.jk<- do.call("rbind",
                   as.list(by(id_IE,data = x,function(x)Var.jk.IE(x,V_PLAUS = V_PLAUS,
-                                                                 ee.V_PLAUS=c("eepv1","eepv2","eepv3","eepv4","eepv5")))))
+                                                                 ee.V_PLAUS=c("eepv1")))))
   
   salida <-data.frame(ID_INST = factor(rownames(sd.jk)),salida,sd.jk)
   return(salida) 

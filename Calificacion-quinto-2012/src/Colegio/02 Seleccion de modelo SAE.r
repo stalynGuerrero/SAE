@@ -67,8 +67,6 @@ head(IE_COVARIABLE)
 ## - "SIN MAS DATO"(cuando la fila de observasiones le hace falta mas de una observación)
 ## - "COMPLETA" (No tiene observaciones faltantes)
 
-# IE_COVARIABLE$ESTADO<- apply(IE_COVARIABLE[,-c(2,3)],1,function(x)ifelse(anyNA(x),ifelse(sum(is.na(x))==1,"SIN UN DATO","SIN MAS DATO"),"COMPLETA"))
-# table(IE_COVARIABLE$ESTADO,useNA = "a")
 rm(list=c("IE_HIS", "SB11_2013"))
 ##############################################################################################################################
 ## Lectura de la base de datos que contiene la información estimada mediante jackknife de las varianzas por IE.
@@ -243,10 +241,11 @@ write.table(CME, file = "output/SEL.MODEL.SAE/Model5.txt",sep = ";",row.names = 
 #                          SEL.MODEL(c("MATEMÁTICAS_3_2012", "PROM.CIENCIAS.SOCIALES","PROM.QUÍMICA_11_2013", "PROM.FÍSICA_11_2013", "ESTUDIANTES_11_2013")),
 #                          SEL.MODEL(c("LENGUAJE_3_2013", "LENGUAJE_9_2013", "MATEMÁTICAS_3_2013", "MATEMÁTICAS_9_2013", "MATEMÁTICAS_5_2012")))
 
-x<-c("MATEMÁTICAS_3_2013", "MATEMÁTICAS_9_2013"  ,  "LENGUAJE_9_2012",    "MATEMÁTICAS_5_2012")
-ls()
+x<-c("LENGUAJE_3_2013",	"MATEMÁTICAS_3_2013",	"MATEMÁTICAS_5_2012",	"MATEMÁTICAS_9_2012",	"PROM.FÍSICA_11_2013")
 
-table(IE_COVARIABLE$ESTADO)
+IE.RESULTADO$ESTADO<- apply(IE.RESULTADO[,x],1,function(x)ifelse(anyNA(x),ifelse(sum(is.na(x))==1,"SIN UN DATO","SIN MAS DATO"),"COMPLETA"))
+ table(IE.RESULTADO$ESTADO,useNA = "a")
+
 ######################################################################################################
 ## El resultado de la rutina anterior es una base que contiene el siguente conjunto de variables #####
 ##                                                                                               #####
@@ -263,11 +262,11 @@ IE.RESULTADO<-IE.RESULTADO %>% dplyr::select(ID_INST,ENTIDAD,M.CONTROL,PROM.MAT,
                                Med.Comp_C3 ,   Sd.Comp_C3,
                                Med.Comp_C3 ,   Sd.Comp_C3,
                                ## Covariables del Modelo SAE
-                               UNOS, LENGUAJE_3_2013    , LENGUAJE_9_2013, 
-                               MATEMÁTICAS_3_2013 , MATEMÁTICAS_9_2013, 
+                               UNOS, LENGUAJE_3_2013,PROM.FÍSICA_11_2013, 
+                               MATEMÁTICAS_3_2013 , MATEMÁTICAS_9_2012, 
                                MATEMÁTICAS_5_2012)
 
 
-save(IE.RESULTADO, file = file.path("output/IE_2013.washMach.model.RData"))
+save(IE.RESULTADO, file = file.path("output/IE_2013.car.model.RData"))
 
 #############################################################################################

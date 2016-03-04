@@ -24,8 +24,7 @@
 ###             en el grado de interés.
 
 ###  Covariables:  
-###  - INSE, Indice socioeconómico de los estudiantes
-###  - SEXO, 
+###  - INSE, Indice socioeconómico de los estudiantes y sus covariables 
 ###  - ZONA y SECTOR a la cual pertenese la IE
 #################################################################################################
 
@@ -37,7 +36,7 @@
 ###################################################################################################
 rm(list = ls())
 ## Definir el directorio de trabajo
-dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/"
+dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/Calificacion-quinto-2012"
 ## Definir subcarpetas
 inpath <- "/input"
 outpath <- "/output"
@@ -78,7 +77,6 @@ require(sampling)
 # 
 
 ESTUDIANTES <- read.csv(file = "input/Colegio/Base/ESTUDIANTES.CENSAL.INSE.txt",sep="\t",header=T)
-
 ###########################################################################################################
 
 ####################################
@@ -100,7 +98,7 @@ id.ETC <- unique(as.character(ESTUDIANTES.MUESTRA$ENTIDAD))
 # El resultado obtenido después poner a prueba los posibles modelos que se pueden construir con la 
 # información disponible en el momento, hemos optado por emplear el modelo: 
 #          
-#              Valor.plausible = mujer+hombre+urbano+rural+INSE 
+#              Valor.plausible = car_si + car_no 
 #
 # Esté modelo se emplea por ETC, y se utilizá para estimar la varianza de las estimaciones por I.E.
 # mediante Jackknife. 
@@ -123,7 +121,7 @@ for (i in  id.ETC[-c(21,33)]){
   result<-rbind(result,
                 E.GREG.IE(BD.ESTUDIANTES = ESTUDIANTES.MUESTRA,
                           V_PLAUS = paste0("V_PLAUS",1:5),
-                          ETC=i,xk =xk[3:4],txk = tx_ETC,
+                          ETC=i,xk =c("car_No","car_Sí"),txk = tx_ETC,
                 method="logit",bounds=c(low=0,upp=100)))
 }
 
@@ -161,9 +159,9 @@ result$Sd.Comp_C4 <- sqrt(lambda*result$greg.SD^2 +(1-lambda)*result$HT.SD^2)
 
 
 IE.RESULTADO<-merge(IE.RESULTADO,result, by="ID_INST",all.x = T)
+IE.RESULTADO$ID_INST <- as.character(IE.RESULTADO$ID_INST)
+save(IE.RESULTADO, file = file.path("output/IE_2013.car.model.RData"))
 
-save(IE.RESULTADO, file = file.path("output/IE_2013.washMach.model.RData"))
-xk
 
 #############################################################################################
 ## El resultado de la rutina anterior es una base que contiene el siguente conjunto de variables

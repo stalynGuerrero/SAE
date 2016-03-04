@@ -10,8 +10,8 @@
 ###################################################################################################
 rm(list = ls())
 ## Definir el directorio de trabajo
-dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/"
-#dirpath<-"C:/Users/guerr/Dropbox/investigacion icfes/SAE/SAE.git/SAE"
+dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/Calificacion-quinto-2012"
+#dirpath<-"C:/Users/guerr/Dropbox/investigacion icfes/SAE/SAE.git/SAE/Calificacion-quinto-2012"
 ## Definir subcarpetas
 inpath <- "/input"
 outpath <- "/output"
@@ -31,6 +31,7 @@ IE_censal<- read.delim(file=file.path(dirpath, inpath,"/Colegio/Covariable/Estud
                                         "numeric","factor","numeric","NULL"),c(1,5,1,1,1,3,1,3,1)),encoding = "latin1")
 ## Identificando las I.E. que pertenensen al censo de IE
 IE_censal <- unique(IE_censal[,c("id_institucion","entidad","zona","sector")])
+head(IE_censal)
 ###########################################################
 ## Lectura la BD que contiene los resultados de las IE para el año 2013
 IE_2013 <- read.csv2(file = file.path(dirpath, inpath,"Colegio/Covariable/Estudiantes/2013interEstabs.txt"),sep = "\t",
@@ -52,7 +53,7 @@ rm(IE_2013_ee)
 
 ######## Índice socioeconómico de estudiantes de grado 5 y 9  ########
 load(file = file.path(dirpath,"input/Colegio/Covariable/Estudiantes/Inse_2013_v2.RData"))
-
+head(CtrlInse_2013fin)
 ## Agregando a la BD del INSE  las caracteristicas del colegio
 IE_censal <- CtrlInse_2013fin%>%
   merge(IE_censal,by.y="id_institucion",by.x="daneEstab")%>%filter(grado==5)%>%dplyr::select(-grado)
@@ -102,6 +103,8 @@ xk <- c("ENTIDAD","ID_INST", "M.CONTROL","EduDad","EduMom", "floors"  , "walls",
 COVARIABLES <- IE_censal[,xk]
 
 ## source(file = "src/ETC/01 Seleccion de Modelo GREG por ETC.r")
+## El código anterior se debe realizar porque se requieren las tranformación de las 
+## variables que se emplean posteriormente
 
 ####### El resultado de la rutina anterior se obtienen los resultados 
 ## - Model_1 

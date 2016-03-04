@@ -37,7 +37,7 @@
 ###################################################################################################
 rm(list = ls())
 ## Definir el directorio de trabajo
-dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/"
+dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/Calificacion-septimo-2015"
 ## Definir subcarpetas
 inpath <- "/input"
 outpath <- "/output"
@@ -54,60 +54,26 @@ require(sampling)
 #########################################################
 ### Lectura de la base de datos de estudiantes   ########
 #########################################################
-# Class<-c(ENTIDAD        = "factor",
-#          ID_INST        = "character",
-#          CONSLECT       = "numeric",
-#          PROM.MAT       = "numeric",
-#          EE.MAT         = "numeric",
-#          PESOS.ESTU     = "numeric",
-#          PESOS.ESTAB    = "numeric",
-#          M.CONTROL      = "numeric",
-#          V_PLAUS1       = "numeric",
-#          V_PLAUS2       = "numeric",
-#          V_PLAUS3       = "numeric",
-#          V_PLAUS4       = "numeric",
-#          V_PLAUS5       = "numeric",
-#          car_No         = "numeric",
-#          car_Sí         = "numeric",
-#          washMach_No    = "numeric",
-#          washMach_Sí    = "numeric",
-#          car_No_TX      = "numeric",
-#          car_Sí_TX      = "numeric",
-#          washMach_No_TX = "numeric",
-#          washMach_Sí_TX = "numeric")
-# 
 
-ESTUDIANTES <- read.csv(file = "input/Colegio/Base/ESTUDIANTES.CENSAL.INSE.txt",sep="\t",header=T)
-
+ESTUDIANTES <- read.csv(file = "input/Colegio/Base/ESTUDIANTES.SEPTIMO.txt",sep="\t",header=T)
+ESTUDIANTES$ID_INST<-as.character(ESTUDIANTES$ID_INST)
+ESTUDIANTES <- ESTUDIANTES %>% filter(parM==1)
 ###########################################################################################################
 
 ####################################
 ## Cálculo de t_x real ##
 ####################################
-Tx_xk <- c("ENTIDAD",colnames(ESTUDIANTES)[grepl("TX",colnames(ESTUDIANTES))])
-tx_ETC <- ESTUDIANTES[,Tx_xk]%>%group_by(ENTIDAD)%>%summarise_each(funs(unique))
-xk <- gsub("_TX","",colnames(ESTUDIANTES)[grepl("TX",colnames(ESTUDIANTES))])
-colnames(tx_ETC)[-1]<-xk
+tx_ETC <- read.csv(file = "input/Colegio/Base/Tx_censal.txt",sep="\t",header=T)
+
 ###########################################################################################################
-IE.RESULTADO<- ESTUDIANTES%>%dplyr::select(ID_INST,ENTIDAD,M.CONTROL,PROM.MAT,EE.MAT) %>%unique()
+IE.RESULTADO<- ESTUDIANTES%>%group_by(ENTIDAD,ID_INST)%>%
+                                                summarise(PROM.IE=mean(PROM.MAT))
 ###########################################################################################################
 #### Selección de muestra control 
-ESTUDIANTES.MUESTRA<- ESTUDIANTES%>%filter(M.CONTROL==1)
+ESTUDIANTES.MUESTRA<- ESTUDIANTES
 ###########################################################################################################
 ## Selección de las ETC que pertenencen a la muestra control
 id.ETC <- unique(as.character(ESTUDIANTES.MUESTRA$ENTIDAD))
-##########################################################################################################
-# El resultado obtenido después poner a prueba los posibles modelos que se pueden construir con la 
-# información disponible en el momento, hemos optado por emplear el modelo: 
-#          
-#              Valor.plausible = mujer+hombre+urbano+rural+INSE 
-#
-# Esté modelo se emplea por ETC, y se utilizá para estimar la varianza de las estimaciones por I.E.
-# mediante Jackknife. 
-# El método de calibración empleado se encuentra dispoblime en la libreria "sampling", mediante la 
-# función "calib", despues de probrar con diferentes métodos se utilizára los resultados obtenidos 
-# "logit", con rango de (0,100)
-###########################################################################################################
 ## Función para la estimacióin de la varianza
 source(file = "src/Funciones/03 Varianza HT IE.r")
 ##########################################################################################################
@@ -118,12 +84,12 @@ result <- data.frame(
   greg.SD=NA,HT.PROM.IE=NA, HT.PROM.sd=NA,HT.JK.sd=NA, HT.SD=NA)
 set.seed(19012016)
 
-for (i in  id.ETC[-c(21,33)]){
+for (i in  id.ETC){
   print(i)
   result<-rbind(result,
                 E.GREG.IE(BD.ESTUDIANTES = ESTUDIANTES.MUESTRA,
-                          V_PLAUS = paste0("V_PLAUS",1:5),
-                          ETC=i,xk =xk[3:4],txk = tx_ETC,
+                          V_PLAUS = "PROM.MAT",
+                          ETC=i,xk =c("heater_No","heater_Sí"),txk = tx_ETC,
                 method="logit",bounds=c(low=0,upp=100)))
 }
 
@@ -162,8 +128,8 @@ result$Sd.Comp_C4 <- sqrt(lambda*result$greg.SD^2 +(1-lambda)*result$HT.SD^2)
 
 IE.RESULTADO<-merge(IE.RESULTADO,result, by="ID_INST",all.x = T)
 
-save(IE.RESULTADO, file = file.path("output/IE_2013.washMach.model.RData"))
-xk
+save(IE.RESULTADO, file = file.path("output/IE_2015.PROM.MAT.RData"))
+
 
 #############################################################################################
 ## El resultado de la rutina anterior es una base que contiene el siguente conjunto de variables
