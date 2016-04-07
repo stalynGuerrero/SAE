@@ -10,54 +10,73 @@
 ###################################################################################################
 ###### Argumentos: Bade de datos de los estudaintes dentro de una ETC  ######
 ###################################################################################################
-Var.jk.IE <- function(x,V_PLAUS=NULL,ee.V_PLAUS=NULL){
+Var.jk.IE <- function(x,PESOS.ESTU,V_PLAUS=NULL,ee.V_PLAUS=NULL){
 ## Argumentos
   ## - x : data.frame que contiene las indicadora de IE (ID_INST),los pesos de estidante (PESOS.ESTU,pesos.greg),
   ##       los valores pausibles (V_PLAUS) y sus errores (ee.V_PLAUS)
   ## ee.V_PLAUS : Tipo character, que contiene los nombres de los errores de los V_PLAUS, por defector es NULL
   
-  if(is.null(V_PLAUS)) {V_PLAUS<-paste0("V_PLAUS",1:5)}
-  if(is.null(ee.V_PLAUS)) {ee.V_PLAUS<-paste0("eepv",1:5)}
-  
-# Estiamdo el promedio mediante los estimadores Horvitz-Thompson (HT) y GREG  para una IE
-  bar.HT   <- (x[["PESOS.ESTU"]]*x[,V_PLAUS])/sum(x[["PESOS.ESTU"]])
-  bar.greg <- (x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]])
-  
-  theta1<-sum(x[,"pesos.greg"]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,"pesos.greg"],na.rm = T)
-  theta0<-sum(x[,"PESOS.ESTU"]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,"PESOS.ESTU"],na.rm = T)
-  
+  # Estiamdo el promedio mediante los estimadores Horvitz-Thompson (HT) y GREG  para una IE
   n <- nrow(x)
   if(n<6){return(data.frame(greg = cbind(PROM.IE =NA,PROM.sd=NA,JK.sd=NA,SD=NA),
                             HT   = cbind(PROM.IE =NA,PROM.sd=NA,JK.sd=NA,SD=NA)))}
-  a <- (n-1)/n
+  
+  
   theta<-paste0("theta<-data.frame(",paste0("theta",1:length(V_PLAUS),sep="=NA",collapse = ","),")")
   eval(parse(text=theta))
   theta2<-paste0("theta2<-data.frame(",paste0("theta",1:length(V_PLAUS),sep="=NA",collapse = ","),")")
   eval(parse(text=theta2))
   
-  for (i in 1:n){
-    theta[i,]<-sum(x[-i,"pesos.greg"]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,"pesos.greg"],na.rm = T)
-    theta2[i,]<-sum(x[-i,"PESOS.ESTU"]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,"PESOS.ESTU"],na.rm = T)
+  
+  if(length(ee.V_PLAUS)==1){
+    bar.HT   <- sum(x[[PESOS.ESTU]]*x[,V_PLAUS])/sum(x[[PESOS.ESTU]])
+    sd.bar.HT    =  0
+    bar.greg <- sum(x[["pesos.greg"]]*x[,V_PLAUS]) /sum(x[["pesos.greg"]])
+    sd.bar.GREG  =  0
+    theta1<-sum(x[,"pesos.greg"]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,"pesos.greg"],na.rm = T)
+    theta0<-sum(x[,PESOS.ESTU]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,PESOS.ESTU],na.rm = T)
+    
+    for (i in 1:n){
+      theta[i,]<-sum(x[-i,"pesos.greg"]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,"pesos.greg"],na.rm = T)
+      theta2[i,]<-sum(x[-i,PESOS.ESTU]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,PESOS.ESTU],na.rm = T)
+    }
+    
+  }else{
+    bar.HT   <- rowMeans((x[[PESOS.ESTU]]*x[,V_PLAUS])/sum(x[[PESOS.ESTU]]))
+    sd.bar.HT   =  sd(bar.HT)
+    bar.greg <- rowMeans((x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]]))
+    sd.bar.GREG   =  sd(bar.greg)
+    
+    
+    theta1<- mean(colSums(x[,"pesos.greg"]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,"pesos.greg"],na.rm = T))
+    theta0<- mean(colSums(x[,PESOS.ESTU]*x[,ee.V_PLAUS],na.rm = T)/sum(x[,PESOS.ESTU],na.rm = T))
+    
+    for (i in 1:n){
+      theta[i,]<- mean(colSums(x[-i,"pesos.greg"]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,"pesos.greg"],na.rm = T))
+      theta2[i,]<-mean(colSums(x[-i,PESOS.ESTU]*x[-i,ee.V_PLAUS],na.rm = T)/sum(x[-i,PESOS.ESTU],na.rm = T))
+    }
   }
   
   theta1 <-matrix(rep(theta1,n),byrow = T,ncol=1) 
   theta0 <-matrix(rep(theta0,n),byrow = T,ncol=1) 
   
+  a <- (n-1)/n
   diff2<-a*(theta-theta1)^2
   sd.greg=sqrt(mean(colSums(diff2))) 
   
   diff2<-a*(theta2-theta0)^2
   sd.HT=sqrt(mean(colSums(diff2))) 
   
-  data.frame(greg=cbind(PROM.IE   =  sum(bar.greg),  # Promedio de la IE
-                        PROM.sd   =  sd(bar.greg),    # Desviacion Estándar de entre las media
+  
+  data.frame(greg=cbind(PROM.IE   =  mean(bar.greg),  # Promedio de la IE
+                        PROM.sd   =  sd.bar.GREG,    # Desviacion Estándar de entre las media
                         JK.sd     =  sd.greg,         # 
-                        SD        =  sqrt(sd.greg^2+1.2*var(bar.greg))),
+                        SD        =  sqrt(sd.greg^2+1.2*(sd.bar.HT^2))),
              
-             HT = cbind(PROM.IE   =  sum(bar.HT),
-                        PROM.sd   =  sd(bar.HT),
+             HT = cbind(PROM.IE   =  mean(bar.HT),
+                        PROM.sd   =  sd.bar.HT,
                         JK.sd     =  sd.HT,
-                        SD        =  sqrt(sd.HT^2+1.2*var(bar.HT))))
+                        SD        =  sqrt(sd.HT^2+1.2*(sd.bar.HT^2))))
 }
 
 ############################################################################################################
@@ -73,23 +92,22 @@ Var.jk.IE <- function(x,V_PLAUS=NULL,ee.V_PLAUS=NULL){
 ###### Argumentos: Base de datos de estuciantes  ######
 ###################################################################################################
 
-E.GREG.IE <- function(BD.ESTUDIANTES,V_PLAUS,ETC,xk,txk,...){
+E.GREG.IE <- function(BD.ESTUDIANTES,PESOS.ESTU,V_PLAUS,ETC,xk,tx,IND=NULL,...){
+  x<- BD.ESTUDIANTES
 ## Argumentos: 
-  ## - BD.ESTUDIANTES: data.frame que contiene las indicadora de IE (ID_INST) y la ETC,los pesos de estidantes (PESOS.ESTU),
-  ##                   los valores pausibles (V_PLAUS) y las covariables (INSE, SEXO, SECTOR, etc.)
+  ## - BD.ESTUDIANTES: data.frame que contiene las indicadora de IE (ID_INST) y la Entidad Territorial Certificada (ETC),
+  ##   los pesos de estidantes (PESOS.ESTU), los valores pausibles (V_PLAUS) y las covariables (INSE, SEXO, SECTOR, etc.)
   ## - V_PLAUS: Cadena de caracter que contiene los nombres con los cuales se identifican los valores plausibles
-  ## - ETC : Tipo character, esta indica la Entidad Territorial Certificada (ETC) de interés
+  ## - ETC : Tipo character, esta indica la ETC de interés
   ## - xk  : Cadena de caracteres que indica las covariables que se emplean en el modelo (esto es a nivel de estudiantes)
   ## - txk : data.frame que contiene los totales de las covariables "xk" por ETC. 
+  ## - IND : Corresponde a la varaible que indica el subgrupo por el cual se realizará la entimación del JK 
   ## - ... : argumentos adicionales que se deseen introducir a la función   "calib" que se utiliza para calibrar los PESOS.ESTU 
 
-## Seleccion de la ETC de interés
-  x <- BD.ESTUDIANTES%>%filter(ENTIDAD==ETC)
-  tx<-txk%>%filter(ENTIDAD==ETC)
 ## En caso que las covariables tengan datos faltantes se realiza la imputación de estos:
-  if(anyNA(x$PESOS.ESTU)){
+  if(anyNA(x[[PESOS.ESTU]])){
     # x<-x[which(!is.na(x$PESOS.ESTU)),]   
-    stop(paste0("Algunos pesos de estudiantes son NA en la ETC ",ETC))
+    stop(paste0("Algunos pesos son NA"))
     }
   
   if(anyNA(x[,xk])){
@@ -100,27 +118,46 @@ E.GREG.IE <- function(BD.ESTUDIANTES,V_PLAUS,ETC,xk,txk,...){
   }
   
 ## Recalculando los pesos de los estudiantes por ETC, usando los txk.
-  gkl <- calib(cbind(x[,xk]),d = x[["PESOS.ESTU"]],
-               total=as.numeric(tx[,xk]),max_iter=10000, method="linear")
+  gkl <- calib(cbind(x[,xk]),d = x[[PESOS.ESTU]],
+               total=as.numeric(tx[,xk]),...)
 # Definir los pesos GREG
-  x$pesos.greg<-x[["PESOS.ESTU"]]*gkl 
+  x$pesos.greg<-x[[PESOS.ESTU]]*gkl 
 # Estiamdo el promedio de mediante los estimadores Horvitz-Thompson (HT) y GREG 
-  bar.HT   <- ((x[["PESOS.ESTU"]])*x[,V_PLAUS])/sum(x[["PESOS.ESTU"]])
-  bar.greg <- (x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]])
+  if(length(V_PLAUS)==1){
+    bar.HT   <- (x[[PESOS.ESTU]]*x[,V_PLAUS])/sum(x[[PESOS.ESTU]])
+    bar.greg <- (x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]])
+  }else{
+    bar.HT   <- rowMeans((x[[PESOS.ESTU]]*x[,V_PLAUS])/sum(x[[PESOS.ESTU]]))
+    bar.greg <- rowMeans((x[["pesos.greg"]]*x[,V_PLAUS])/sum(x[["pesos.greg"]]))
+       }
+  
+  
   salida   <-  data.frame(PROM.greg.ETC   = sum(bar.greg),   Sd.greg.PROM = sd(bar.greg),
                           PROM.HT.ETC     = sum(bar.HT),     Sd.HT.PROM   = sd(bar.HT))
 # Calculando los errores del modelo de regresión 
   for(i in 1:length(V_PLAUS)){
   texto <- paste0("x$eepv",i,"=residuals(lm(",V_PLAUS[i],"~.-1,data=x[,c(V_PLAUS[",i,"],xk)],weights = x[['PESOS.ESTU']]))")
   eval(parse(text=texto))}
+  ee.V_PLAUS<-colnames(x)[grepl("eepv",colnames(x))]
   
 # Seleccionando las IE pertenecen a la ETC
-  id_IE <- factor(as.character(x$ID_INST))
+  if(is.null(IND)){
+    sd.jk <- Var.jk.IE(x,V_PLAUS = V_PLAUS,ee.V_PLAUS=ee.V_PLAUS,PESOS.ESTU=PESOS.ESTU)
+    salida <-data.frame(salida,sd.jk)
+  }else{
+  id_IE <- factor(as.character(x[[IND]]))
 # Estimar la Varianza Jackknife para las IE dentro de la ETC
   sd.jk<- do.call("rbind",
                   as.list(by(id_IE,data = x,function(x)Var.jk.IE(x,V_PLAUS = V_PLAUS,
-                                                                 ee.V_PLAUS=c("eepv1")))))
-  
+                                                                 ee.V_PLAUS=ee.V_PLAUS,
+                                                                 PESOS.ESTU=PESOS.ESTU))))
   salida <-data.frame(ID_INST = factor(rownames(sd.jk)),salida,sd.jk)
+  }
+  
+  
+##  E.GREG.IE(data.frame(subset(ESTUDIANTES,ENTIDAD==i)),PESOS.ESTU="PesoM",V_PLAUS = "ppp",xk ="INSE",
+##  tx = data.frame(subset(tx_ETC,ENTIDAD==i)),IND ="ID_INST",method="linear")
+
+  
   return(salida) 
 }
