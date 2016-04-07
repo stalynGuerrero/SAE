@@ -31,130 +31,82 @@ library(dplyr)
 require(mice)
 ###########################################################################################################
 ## Lectura de la base de datos de las IE con sus respectivas covariables 
-load("output/IE_2015.PROM.MAT2.RData")
+# load("output/Colegios/Model SAE/IE_2015.PROM.COMPETENCIA_SAE.RData")
+# load("output/Colegios/Model SAE/IE_2015.PROM.MATEMATICAS_SAE.RData")
+# load("output/Colegios/Model SAE/IE_2015.PROM.LENGUAJE_SAE.RData")
+load("output/Colegios/Model SAE/IE_2015.PROM.CIENCIAS_SAE.RData")
 ## Clasificar la base en dos grupos, 
 #  - SIN.IMPUTAR: La información en las covariables esta completa 
 #  - IMPUTAR:     La información en las covariables esta incompleta 
 
 ## Covariables del Modelo SAE Ciencia
-#NOM.COV<-c("UNOS","LENGUAJE_5_2013","MATEMÁTICAS_5_2013")
+#NOM.COV<-c( "UNOS", "CIENCIAS_5_2014", "CIENCIAS_5_2012", "LENGUAJE_5_2014")
+
 ## Covariables del Modelo SAE Matematicas
- NOM.COV<-c("UNOS","PROM_MATEMATICAS_20142","MATEMÁTICAS_5_2013")
+# NOM.COV<-c("UNOS","MATEMÁTICAS_5_2012", "MATEMÁTICAS_5_2014","PROM_INGLES_20142")
 
 ## Covariables del Modelo SAE Lenguaje
-# NOM.COV<-c("UNOS","CIENCIAS_5_2014","LENGUAJE_9_2014")
+# NOM.COV<-c("UNOS","LENGUAJE_3_2014", "LENGUAJE_5_2014","LENGUAJE_9_2014")
+
 ## Covariables del Modelo SAE Competencia
-#NOM.COV <- c("UNOS", "CIENCIAS_5_2014",	"CIENCIAS_9_2014")
-IE.RESULTADO$ESTADO<-apply(IE.RESULTADO[,NOM.COV],1, function(x)ifelse(anyNA(x),"IMPUTAR","SIN.IMPUTAR"))
-IE.RESULTADO$M_CONTROL<-apply(IE.RESULTADO[,c("greg.PROM.IE","HT.PROM.IE","Med.Comp_C3")],1, function(x)ifelse(anyNA(x),0,1))
+# NOM.COV <- c("UNOS",  "CIENCIAS_5_2014", "CIENCIAS_9_2014","LENGUAJE_3_2014")
+## Identificar EE que tienen variables que deben ser imputadas
+
+IE.RESULTADO$IMP<-apply(IE.RESULTADO[,NOM.COV],1, function(x)ifelse(anyNA(x),"IMPUTAR","SIN.IMPUTAR"))
 ## Partir la base en dos MUESTRA.CONTROL y PRONOSTICO
-MUESTRA.CONTROL<- subset(IE.RESULTADO,M_CONTROL==1& ESTADO=="SIN.IMPUTAR")
+MUESTRA.CONTROL<- subset(IE.RESULTADO,IND=="ESTIMAR"& IMP=="SIN.IMPUTAR")
 ## Omitir la IE que no presentaron resultado en el calculo de las varianza 
 #MUESTRA.CONTROL<-na.omit(MUESTRA.CONTROL) ## se eliminan dos 
 ##############
-table(IE.RESULTADO$ESTADO,IE.RESULTADO$M_CONTROL)
-PRONOSTICO<- subset(IE.RESULTADO,M_CONTROL==0& ESTADO=="SIN.IMPUTAR")
-#PRONOSTICO[,NOM.COV]<-complete(mice(PRONOSTICO[,NOM.COV],method = "norm.boot"))
+table(IE.RESULTADO$IMP,IE.RESULTADO$IND)
+sel = paste0(IE.RESULTADO$IMP,sep="_",IE.RESULTADO$IND)
+PRONOSTICO<- subset(IE.RESULTADO,sel!="SIN.IMPUTAR_ESTIMAR")
+PRONOSTICO[,c(NOM.COV)]<-complete(mice(PRONOSTICO[,c(NOM.COV)],method = "norm.boot"))
 ##############################################################################
 ## Evaluar el modelo con los diferentes estimadores
-MODEL.Fay<-function(ESTIMA,NOM.COV,ESTIMA.SD){  
-  xk <- paste0("MUESTRA.CONTROL$",NOM.COV[-1],collapse = "+")
-  model<-paste0("resultREML0<-eblupFH(as.vector(MUESTRA.CONTROL$",ESTIMA,")~",xk,",vardir=MUESTRA.CONTROL$",ESTIMA.SD,"^2, method = 'REML')")
-  eval(parse(text=model))
-  list(
-    ESTIMA.Fay = resultREML0$eblup[,1],
-    PRONS.Fay  = as.matrix(PRONOSTICO[,NOM.COV])%*%resultREML0$fit$estcoef$beta)
-  }
+source(file = "src/Funciones/mlFH.r")
 ####################################
 ## Fay - Herriot:
 ####################################
-fay<-MODEL.Fay("greg.PROM.IE",NOM.COV, "greg.SD")
+fay<-mlFH(MUESTRA.CONTROL,PRONOSTICO,yhat="greg.PROM.IE",Sd.yhat = "greg.SD",Xk=NOM.COV)
 MUESTRA.CONTROL$Fay.GREG<-fay$ESTIMA.Fay
 PRONOSTICO$Fay.GREG <-fay$PRONS.Fay
+CME.GREG <- fay$CME*100
 ####################################
 ## Fay - Herriot:
 ####################################
-fay<-MODEL.Fay("HT.PROM.IE",NOM.COV, "HT.SD")
+fay<-mlFH(MUESTRA.CONTROL,PRONOSTICO,yhat="HT.PROM.IE",Sd.yhat = "HT.SD",Xk=NOM.COV)
 MUESTRA.CONTROL$Fay.HT<-fay$ESTIMA.Fay
 PRONOSTICO$Fay.HT <-fay$PRONS.Fay
+CME.HT <- fay$CME*100
 ####################################
 ## Fay - Herriot:
 ####################################
-fay<-MODEL.Fay("Med.Comp_C3",NOM.COV, "Sd.Comp_C3")
-MUESTRA.CONTROL$Fay.Comp<-fay$ESTIMA.Fay
-PRONOSTICO$Fay.Comp <-fay$PRONS.Fay
+fay<-mlFH(MUESTRA.CONTROL,PRONOSTICO,yhat="Med.Comp_C3",Sd.yhat = "Sd.Comp_C3",Xk=NOM.COV)
+MUESTRA.CONTROL$PROM_SAE <- fay$ESTIMA.Fay
+PRONOSTICO$PROM_SAE      <- fay$PRONS.Fay
+CME.COMP <- fay$CME*100
+####################################
+## Filtro de resultados
+IE.RESULTADO<- data.frame(rbind(MUESTRA.CONTROL,PRONOSTICO))%>%
+               dplyr::select(ID_INST,ENTIDAD,IND,PROM.IE,PROM_SAE)
+               
+## Estandarizar resultados con media 300 y desviación estándar de 80, 
+## truncando los valores superiores a 500 y menores a 100.
 
-IE.RESULTADO<- data.frame(rbind(MUESTRA.CONTROL,PRONOSTICO))
-IE.RESULTADO$M.CONTROL <-factor(IE.RESULTADO$M_CONTROL,labels=c("PRONOSTICO","ESTIMACIÓN"))
+media<-mean(IE.RESULTADO$PROM_SAE)
+desv<- sd(IE.RESULTADO$PROM_SAE)
+z<- (IE.RESULTADO$PROM_SAE-media)/desv
+IE.RESULTADO$PROM_SAE<- round(80*z+300,0)
+IE.RESULTADO$PROM_SAE<-ifelse(IE.RESULTADO$PROM_SAE<=100,100,
+                             ifelse(IE.RESULTADO$PROM_SAE>=500,500,IE.RESULTADO$PROM_SAE))
 
-G0 <- ggplot(IE.RESULTADO,aes(x=Fay.GREG,y=PROM.IE))+geom_point(size=2.5)+
-  theme_light(20)+ geom_smooth(method = lm,se=FALSE,size=1.5)+
-  ylab("Censal")+xlab("SAE")+labs(colour="")+ geom_abline(intercept = 0, slope = 1)
-G0<-G0+facet_grid(. ~ M.CONTROL,scales = "free")+ggtitle("ESTIMADOR GREG")
-X11()
-G0
-
-
-G1 <- ggplot(IE.RESULTADO,aes(x=Fay.HT,y=PROM.IE))+geom_point(size=2.5)+
-  theme_light(20)+ geom_smooth(method = lm,se=FALSE,size=1.5)+
-  ylab("Censal")+xlab("SAE")+labs(colour="")+ geom_abline(intercept = 0, slope = 1)
-G1<-G1+facet_grid(. ~ M.CONTROL,scales = "free")+ggtitle("ESTIMADOR HT")
-X11()
-G1
-
-G2 <- ggplot(IE.RESULTADO,aes(x=Fay.Comp,y=PROM.IE))+geom_point(size=2.5)+
-  theme_light(20)+ geom_smooth(method = lm,se=FALSE,size=1.5)+
-  ylab("Censal")+xlab("SAE")+labs(colour="")+ geom_abline(intercept = 0, slope = 1)
-G2<-G2+facet_grid(. ~ M.CONTROL,scales = "free")+ggtitle("ESTIMADOR COMP")
-X11()
-G2
-
-
-X11()
-gridExtra::grid.arrange( G0,G1,G2, ncol=1)
-
-jpeg(filename = file.path("output/Colegios/Graficas/Resultado_Mat/Fay.jpg"),width = 1200,height = 1200)
-gridExtra::grid.arrange( G1,G0,G2, ncol=1)
-dev.off()     
-
-ggsave(G0,filename = "output/Colegios/Graficas/Resultado_Mat/Fay.GREG.jpg",width=15, height=12)
-ggsave(G1,filename = "output/Colegios/Graficas/Resultado_Mat/Fay.HT.jpg",width=15, height=12)
-ggsave(G2,filename = "output/Colegios/Graficas/Resultado_Mat/Fay.COMP.jpg",width=15, height=12)
-
-# CME <- IE.RESULTADO %>%group_by(M_CONTROL)%>% summarise(
-#   GREG =sqrt(sum((PROM.IE-Fay.GREG)^2,na.rm=T)/n()),
-#   HT =sqrt(sum((PROM.IE-Fay.HT)^2,na.rm=T)/n()),
-#   COMP =sqrt(sum((PROM.IE-Fay.Comp)^2,na.rm=T)/n()))
-
-#write.table(CME,file = "output/Colegios/Graficas/Resultado_covar_INSE/Modelo washMach/CME.txt",sep="\t",quote = FALSE,row.names = FALSE)
-
-IE.RESULTADO <-IE.RESULTADO%>%dplyr::select(ID_INST,ENTIDAD,M.CONTROL,PROM.IE,Fay.GREG, Fay.HT,Fay.Comp)
-
-write.table(IE.RESULTADO,file = "output/Colegios/Promedios/Resultados.IE.MAT.txt",sep="\t",quote = FALSE,row.names = FALSE)
-
-
-CME<-subset(IE.RESULTADO,!is.na(PROM.IE))
-sqrt(sum((CME$PROM.IE-CME$Fay.Comp)^2)/nrow(CME))
-
-G2 <- ggplot(subset(IE.RESULTADO,!is.na(PROM.IE)),aes(x=PROM.IE))+geom_density(size=2,adjust=2)+theme_light(20)+
-  labs(x="",y="",title="Muestra, n=331, CME =5.54%")+xlim(0,1)
-dim(subset(IE.RESULTADO,is.na(PROM.IE)))
-G2.1 <- ggplot(subset(IE.RESULTADO,is.na(PROM.IE)),aes(x=Fay.Comp))+geom_density(size=2,adjust=2)+theme_light(20)+
-  labs(x="",y="",title="Pronóstico, N=7266")+xlim(0,1)
-
-jpeg(filename = file.path("output/Colegios/Graficas/Resultado_Mat/FayMAT.jpg"),width = 1200,height = 1200)
-gridExtra::grid.arrange( G2,G2.1, ncol=1)
-dev.off()     
-
-CME<-IE.RESULTADO %>% dplyr::select(M.CONTROL,PROM.IE,Fay.Comp)%>%melt(id=c("M.CONTROL"))
-
-G2 <- ggplot(CME,aes(x=value,fill=variable))+geom_density(size=2,adjust=2,alpha=0.3)+
-  labs(x="")+xlim(0,1)+labs(y="Densidad",fill="")+theme_light(35)
-
-ggsave(G2,filename = "output/Colegios/Graficas/Resultado_Mat/Densidad.jpg",width=15, height=12)
-
-
-PROMEDIO.ETC<- IE.RESULTADO%>%group_by(ENTIDAD)%>%summarise(Comp.Ciencia=mean(Fay.Comp))
+write.table(IE.RESULTADO,file = "output/Colegios/Promedios/Ciencias/RESULTADOS.EE.txt",sep="\t",quote = FALSE,row.names = FALSE)
+########################################################################
+################        Resultados por ETC        ######################
+########################################################################
+PROMEDIO.ETC<- IE.RESULTADO%>%group_by(ENTIDAD)%>%summarise(PROM_SAE=mean(PROM_SAE))
+## Adecuar las bases para realizar mapas
 
 PROMEDIO.ETC$ENTIDAD<-toupper(PROMEDIO.ETC$ENTIDAD)
 PROMEDIO.ETC$ENTIDAD<-gsub("Á","A", PROMEDIO.ETC$ENTIDAD)
@@ -164,7 +116,10 @@ PROMEDIO.ETC$ENTIDAD<-gsub("Ó","O", PROMEDIO.ETC$ENTIDAD)
 PROMEDIO.ETC$ENTIDAD<-gsub("Ú","U", PROMEDIO.ETC$ENTIDAD)
 PROMEDIO.ETC$ENTIDAD<-gsub("Ü","U", PROMEDIO.ETC$ENTIDAD)
 PROMEDIO.ETC$ENTIDAD<-gsub("BOGOTA, D.C.","BOGOTA", PROMEDIO.ETC$ENTIDAD)
-
+PROMEDIO.ETC$ENTIDAD<-gsub("DOSQUEBRADAS","DOS QUEBRADAS", PROMEDIO.ETC$ENTIDAD)
 Diccionario<-read.delim("input/Colegio/Base/Diccionario.txt")
+
 PROMEDIO.ETC<-merge(Diccionario,PROMEDIO.ETC,by.x="Nombre",by.y = "ENTIDAD")
-write.table(PROMEDIO.ETC,file = "output/Colegios/Promedios/PROMEDIO.ETC.MATEMATICAS.txt",sep="\t",quote = FALSE,row.names = FALSE)
+write.table(PROMEDIO.ETC,file = "output/Colegios/Promedios/Ciencias/RESULTADOS.ETC.txt",sep="\t",quote = FALSE,row.names = FALSE)
+
+
