@@ -30,7 +30,8 @@ require(mice)
 ##############################################################################################################################
 # Resultados de promedio por IE en las pruebas Saber 11 para el 2013
 source(file = "input/Colegio/Covariable/Cruce de información auxiliar.r")
-ls()
+source(file = "src/Funciones/SEL.MODEL.SAE.r")
+
 SB11<-SB11 %>%  dplyr::select(-PERIODO_2012,-PERIODO_2013,-ESTUDIANTES_20142,-ESTUDIANTES_2015,
                              -PERIODO_20142,-PERIODO_2015,-ESTUDIANTES_2013)
 SB11<-SB11[,c("DANE_ESTABLECIMIENTO",colnames(SB11)[grepl("2014",colnames(SB11))])]
@@ -69,7 +70,11 @@ rm(list=c("IE_HIS", "SB11"))
 ## Lectura de la base de datos que contiene la información estimada mediante jackknife de las varianzas por IE.
 ## esta se obtiene del codigo "01 Varianza.HT.GREG_IE.r"
 ##############################################################################################################################
-load("output/IE_2015.PROM.MAT.RData")
+# load("output/Colegios/Varianzas Estimadas/IE_2015.PROM.COMPETENCIA_INSE.RData")
+# load("output/Colegios/Varianzas Estimadas/IE_2015.PROM.MATEMATICAS_INSE.RData")
+# load("output/Colegios/Varianzas Estimadas/IE_2015.PROM.LENGUAJE_INSE.RData")
+# load("output/Colegios/Varianzas Estimadas/IE_2015.PROM.CIENCIAS_INSE.RData")
+
 #####################
 ## Lectura selección de los nombres de las covariables a emplear
 NOM_COV<-names(IE_COVARIABLE)[!names(IE_COVARIABLE)%in%c("ID_INSTITUCION","ESTADO","CIENCIAS_5_2013","CIENCIAS_9_2013")]
@@ -80,136 +85,27 @@ NOM_COV<-NOM_COV[!grepl(" ",NOM_COV)]
 IE.RESULTADO<-merge(IE.RESULTADO,IE_COVARIABLE,by.x = "ID_INST",by.y="ID_INSTITUCION",all = T)
 ## Seleccionar las IE que cuantan con la mayor cantidad de información para así poder hacer la selección de un modelo 
 ## SAE que sea adecuado para realizar pronosticos 
-# IE.RESULTADO$SECTOR <- ifelse(IE.RESULTADO$SECTOR=="Oficial",1,0)
-# IE.RESULTADO$ZONA <- ifelse(IE.RESULTADO$ZONA=="Rural",1,0)
-IE.RESULTADO$M_CONTROL<- ifelse(!is.na(IE.RESULTADO$PROM.IE),1,0)
-IE.RESULTADO$UNOS <- 1
-## Seleccionando las IE que pertenecen a la muestra control 
-MUEST.CONTROL <- IE.RESULTADO%>%filter(M_CONTROL==1)
-x<-c("CIENCIAS_5_2012", "CIENCIAS_9_2013")
-SEL.MODEL<-function(x){
-  
-  temp <-IE.RESULTADO[,c("greg.PROM.IE","greg.SD","PROM.IE","M_CONTROL","UNOS",x)]
-  
-  temp$M.CONTROL<- apply(temp[,c("greg.PROM.IE","greg.SD","M_CONTROL")],1,
-                         function(x)ifelse(!anyNA(x[1:2])&x[3]==1,1,0))
-  
-  temp$ESTADO<- apply(temp[,x],1,
-                      function(x)ifelse(anyNA(x),ifelse(sum(is.na(x))==1,"SIN UN DATO","SIN MAS DATO"),"COMPLETA"))
-  
-  MUEST.CONT <- subset(temp,M.CONTROL==1&ESTADO=="COMPLETA")
-  xk       <- paste0("MUEST.CONT$",x,collapse = "+")
-  model    <- paste0("resultREML0<-eblupFH(as.vector(MUEST.CONT$greg.PROM.IE)~",xk,",vardir=MUEST.CONT$greg.SD^2, method = 'REML')")
-  eval(parse(text=model))
-  N.CONTRL <- nrow(MUEST.CONT)
-  CME      <- sum((resultREML0$eblup[,1]-MUEST.CONT$PROM.IE)^2)/N.CONTRL
-  
-  temp2         <- subset(temp,M.CONTROL==0 &ESTADO=="COMPLETA"&M_CONTROL==1)
-  if (nrow(temp2)>1){
-  PROM.MAT      <- temp2$PROM.IE
-  temp2         <- as.matrix(temp2[,c("UNOS",x)])%*%resultREML0$fit$estcoef$beta
-  N.PRONS.MC    <- nrow(temp2)
-  CME_PRONS_MC  <- sqrt(sum((temp2[,1]-PROM.MAT)^2,na.rm = T)/N.PRONS.MC)
-  }else{CME_PRONS_MC=NA
-  N.PRONS.MC=NA}
-  
-  temp2         <- subset(temp,ESTADO=="SIN UN DATO"&M_CONTROL==1)
-  if (nrow(temp2)>5){
-      PROM.MAT      <- temp2$PROM.IE
-      N.PRONS.IMPU  <- nrow(temp2)
-      imput <- tryCatch(mice(temp2[,x],method = "norm.boot"),error = function(e) NULL)
-      if(is.null(imput)){CME_PRONS_IMPU<-NA
-      }else{temp2[,x] <- complete(imput)
-      temp2 <- as.matrix(temp2[,c("UNOS",x)])%*%resultREML0$fit$estcoef$beta
-      CME_PRONS_IMPU <- sqrt(sum((temp2[,1]-PROM.MAT)^2,na.rm = T)/N.PRONS.IMPU)
-      }    
-      }else{N.PRONS.IMPU=NA
-            CME_PRONS_IMPU=NA}
-  
-  c(resultREML0$fit$goodness[1:4],
-    ### MUESTRA CONTROL
-    CME.CONTRL=sqrt(CME),N.CONTRL=N.CONTRL,
-    ### PRONOSTICO SIN IMPUTAR
-    CME_PRONS_MC=CME_PRONS_MC,N.PRONS.MC=N.PRONS.MC,
-    ### PRONOSTICO CON IMPUTAR
-    CME_PRONS_IMPU=CME_PRONS_IMPU,N.PRONS.IMPU=N.PRONS.IMPU)
-}
 #########################################################################################################
 # Seleccion de modelo con 2 covariables
 ########################################
-Cov.xk <-data.frame(t(combn(NOM_COV,2)))
-CME <-apply(Cov.xk, 1, SEL.MODEL)
-CME<-t(CME)
-CME<- cbind(Cov.xk,CME)
-head(CME[order(CME[,"CME.CONTRL"],decreasing = T),])
-#--------------------------
-head(CME[order(CME[,"N.CONTRL"],decreasing = T),])
-write.table(CME, file = "output/SEL.MODEL.SAE/Competencias/Model2.txt",sep = ";",row.names = FALSE)
 
-## Modelo resultante: 
-# Model.Propuestos<- rbind(SEL.MODEL(c("MATEMÁTICAS_5_2012", "PROM.NGLÉS_11_2013")),
-#                         SEL.MODEL(c("MATEMÁTICAS_3_2013" ,"MATEMÁTICAS_5_2012")))
+# CME <- SEL.MODEL(IE.RESULTADO,yhat="greg.PROM.IE",Sd.yhat= "greg.SD",NOM_COV,y="PROM.IE",p=2)
+# CME%>%arrange(desc(CME.CONTRL))%>%head()
+
 #########################################################################################################
-# Seleccion de modelo con 3 covariables
-########################################
-
-Cov.xk <-data.frame(t(combn(NOM_COV,3)))
-CME <-apply(Cov.xk, 1, SEL.MODEL)
-
-CME<-t(CME)
-CME<- cbind(Cov.xk,CME)
-head(CME[order(CME[,"CME.CONTRL"],decreasing = T),])
-#--------------------------
-head(CME[order(CME[,"N.CONTRL"],decreasing = T),])
-write.table(CME, file = "output/SEL.MODEL.SAE/Competencias/Model3.txt",sep = ";",row.names = FALSE)
-## Modelo resultante:
-# Model.Propuestos<- rbind(Model.Propuestos,
-#                          SEL.MODEL(c("MATEMÁTICAS_5_2012",  "PROM.FÍSICA_11_2013",  "PROM.NGLÉS_11_2013")),
-#                          SEL.MODEL(c("LENGUAJE_9_2013", "MATEMÁTICAS_3_2013", "MATEMÁTICAS_5_2012")))
+ IE_censal<- read.delim(file=file.path(dirpath, inpath,"/Colegio/Covariable/Estudiantes/ResultadosSB359_2014Establecimientos.txt"),
+                        colClasses="character",encoding = "UTF-8")
 #########################################################################################################
-# Seleccion de modelo con 4 covariables
-########################################
-Cov.xk <-data.frame(t(combn(NOM_COV,4)))
-CME <-apply(Cov.xk, 1, SEL.MODEL)
-
-CME<-t(CME)
-CME<- cbind(Cov.xk,CME)
-head(CME[order(CME[,"CME.CONTRL"],decreasing = T),])
-#--------------------------
-head(CME[order(CME[,"N.CONTRL"],decreasing = T),])
-write.table(CME, file = "output/SEL.MODEL.SAE/Model4.txt",sep = ";",row.names = FALSE)
-## Modelo resultante:
-# Model.Propuestos<- rbind(Model.Propuestos,
-#                          SEL.MODEL(c("MATEMÁTICAS_5_2012","PROM.CIENCIAS.SOCIALES_11_2013","PROM.FÍSICA_11_2013","PROM.NGLÉS_11_2013")),
-#                          SEL.MODEL(c("LENGUAJE_3_2013", "MATEMÁTICAS_3_2013", "MATEMÁTICAS_9_2013", "MATEMÁTICAS_5_2012")))
+## Identificando las I.E. que pertenensen al censo de IE (seguimiento desde el 2009 hasta 2014)
 #########################################################################################################
-# Seleccion de modelo con 5 covariables
-########################################
-
-Cov.xk <-data.frame(t(combn(NOM_COV,5)))
-CME <-apply(Cov.xk, 1, SEL.MODEL)
-
-CME<-t(CME)
-CME<- cbind(Cov.xk,CME)
-head(CME[order(CME[,"CME.CONTRL"],decreasing = T),])
-#--------------------------
-head(CME[order(CME[,"N.CONTRL"],decreasing = T),])
-write.table(CME, file = "output/SEL.MODEL.SAE/Model5.txt",sep = ";",row.names = FALSE)
-
-## Modelo resultante:
-# Model.Propuestos<- rbind(Model.Propuestos,
-#                          SEL.MODEL(c("MATEMÁTICAS_3_2012","MATEMÁTICAS_5_2012", "PROM.CIENCIAS.SOCIALES_11_2013", "PROM.FÍSICA_11_2013","PROM.NGLÉS_11_2013")),
-#                          SEL.MODEL(c("LENGUAJE_3_2013", "LENGUAJE_9_2013", "MATEMÁTICAS_3_2013", "MATEMÁTICAS_9_2013", "MATEMÁTICAS_5_2012")))
-
-
-
+IE_censal <- unique(IE_censal[,c("id_institucion","entidad","zona","sector")])
+IE.RESULTADO<-merge(IE_censal,IE.RESULTADO,by.x="id_institucion",by.y="ID_INST")
+IE.RESULTADO$ENTIDAD<-IE.RESULTADO$entidad
+IE.RESULTADO$ID_INST<-IE.RESULTADO$id_institucion
+IE.RESULTADO$UNOS<-1
+IE.RESULTADO$IND<- ifelse(!is.na(IE.RESULTADO$greg.PROM.IE),"ESTIMAR","PRONOSTICO")
 ######################################################################################################
-## El resultado de la rutina anterior es una base que contiene el siguente conjunto de variables #####
-##                                                                                               #####
-##                  GREG = UNOS + LENGUAJE_3_2013+"LENGUAJE_9_2013+MATEMÁTICAS_3_2013+           #####
-##                                MATEMÁTICAS_9_2013+MATEMÁTICAS_5_2012                          #####
-######################################################################################################
-IE.RESULTADO<-IE.RESULTADO %>% dplyr::select(ID_INST,ENTIDAD,PROM.IE,M_CONTROL,
+IE.RESULTADO<-IE.RESULTADO %>% dplyr::select(ID_INST,ENTIDAD,PROM.IE,IND,
                                ## Promedios y desviaciones  estimadas por ETC
                                PROM.greg.ETC,  Sd.greg.PROM,
                                PROM.HT.ETC,    Sd.HT.PROM,
@@ -219,20 +115,18 @@ IE.RESULTADO<-IE.RESULTADO %>% dplyr::select(ID_INST,ENTIDAD,PROM.IE,M_CONTROL,
                                Med.Comp_C3 ,   Sd.Comp_C3,
                                Med.Comp_C3 ,   Sd.Comp_C3,
                                ## Covariables del Modelo SAE Ciencia
-                               #  UNOS,LENGUAJE_5_2013,MATEMÁTICAS_5_2013
+                               # UNOS,CIENCIAS_5_2014,CIENCIAS_5_2012,LENGUAJE_5_2014
                                
                                ## Covariables del Modelo SAE Matematicas
-                                UNOS,PROM_MATEMATICAS_20142,MATEMÁTICAS_5_2013
-                               
+                                UNOS,MATEMÁTICAS_5_2014,MATEMÁTICAS_5_2012,PROM_INGLES_20142
+  
                                ## Covariables del Modelo SAE Lenguaje
-                               ## UNOS,CIENCIAS_5_2014,LENGUAJE_9_2014
+                                # UNOS,LENGUAJE_3_2014, LENGUAJE_5_2014, LENGUAJE_9_2014
                                
                                ## Covariables del Modelo SAE Competencia
-                               #UNOS,CIENCIAS_5_2014,	CIENCIAS_9_2014
+#                                 UNOS,CIENCIAS_5_2014,	CIENCIAS_9_2014, LENGUAJE_3_2014
                                 )
-
-str(IE.RESULTADO)
-
-save(IE.RESULTADO, file = file.path("output/IE_2015.PROM.MAT2.RData"))
-
-#############################################################################################
+head(IE.RESULTADO)
+#########################################################################################################
+save(IE.RESULTADO, file = file.path("output/Colegios/Model SAE/IE_2015.PROM.MATEMATICAS_SAE.RData"))
+#########################################################################################################
