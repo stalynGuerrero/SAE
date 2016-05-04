@@ -11,7 +11,7 @@
 ###################################################################################################
 rm(list = ls())
 ## Definir el directorio de trabajo
-dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/Calificacion-septimo-2015/"
+dirpath <-dirpath <-"C:/Users/sguerrero/Documents/SAE/Calificacion-septimo-2015"
 ## Definir subcarpetas
 inpath <- "/input"
 outpath <- "/output"
@@ -34,7 +34,7 @@ require(mice)
 # load("output/Colegios/Model SAE/IE_2015.PROM.COMPETENCIA_SAE.RData")
 # load("output/Colegios/Model SAE/IE_2015.PROM.MATEMATICAS_SAE.RData")
 # load("output/Colegios/Model SAE/IE_2015.PROM.LENGUAJE_SAE.RData")
-load("output/Colegios/Model SAE/IE_2015.PROM.CIENCIAS_SAE.RData")
+# load("output/Colegios/Model SAE/IE_2015.PROM.CIENCIAS_SAE.RData")
 ## Clasificar la base en dos grupos, 
 #  - SIN.IMPUTAR: La información en las covariables esta completa 
 #  - IMPUTAR:     La información en las covariables esta incompleta 
@@ -56,7 +56,6 @@ IE.RESULTADO$IMP<-apply(IE.RESULTADO[,NOM.COV],1, function(x)ifelse(anyNA(x),"IM
 ## Partir la base en dos MUESTRA.CONTROL y PRONOSTICO
 MUESTRA.CONTROL<- subset(IE.RESULTADO,IND=="ESTIMAR"& IMP=="SIN.IMPUTAR")
 ## Omitir la IE que no presentaron resultado en el calculo de las varianza 
-#MUESTRA.CONTROL<-na.omit(MUESTRA.CONTROL) ## se eliminan dos 
 ##############
 table(IE.RESULTADO$IMP,IE.RESULTADO$IND)
 sel = paste0(IE.RESULTADO$IMP,sep="_",IE.RESULTADO$IND)
@@ -65,20 +64,6 @@ PRONOSTICO[,c(NOM.COV)]<-complete(mice(PRONOSTICO[,c(NOM.COV)],method = "norm.bo
 ##############################################################################
 ## Evaluar el modelo con los diferentes estimadores
 source(file = "src/Funciones/mlFH.r")
-####################################
-## Fay - Herriot:
-####################################
-fay<-mlFH(MUESTRA.CONTROL,PRONOSTICO,yhat="greg.PROM.IE",Sd.yhat = "greg.SD",Xk=NOM.COV)
-MUESTRA.CONTROL$Fay.GREG<-fay$ESTIMA.Fay
-PRONOSTICO$Fay.GREG <-fay$PRONS.Fay
-CME.GREG <- fay$CME*100
-####################################
-## Fay - Herriot:
-####################################
-fay<-mlFH(MUESTRA.CONTROL,PRONOSTICO,yhat="HT.PROM.IE",Sd.yhat = "HT.SD",Xk=NOM.COV)
-MUESTRA.CONTROL$Fay.HT<-fay$ESTIMA.Fay
-PRONOSTICO$Fay.HT <-fay$PRONS.Fay
-CME.HT <- fay$CME*100
 ####################################
 ## Fay - Herriot:
 ####################################

@@ -9,7 +9,7 @@
 ###################################################################################################
 rm(list = ls())
 ## Definir el directorio de trabajo
-dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/Calificacion-septimo-2015/"
+dirpath <-"C:/Users/sguerrero/Documents/SAE/Calificacion-septimo-2015"
 ## Definir subcarpetas
 inpath <- "/input"
 outpath <- "/output"
@@ -20,9 +20,6 @@ setwd(dirpath)
 ############# Librerias #############
 ####################################################
 library(TeachingSampling)
-library(lme4)
-library(ggplot2)
-library(ggthemes)
 library(reshape2)
 library(sae)
 library(dplyr)
@@ -89,7 +86,7 @@ IE.RESULTADO<-merge(IE.RESULTADO,IE_COVARIABLE,by.x = "ID_INST",by.y="ID_INSTITU
 # Seleccion de modelo con 2 covariables
 ########################################
 
-# CME <- SEL.MODEL(IE.RESULTADO,yhat="greg.PROM.IE",Sd.yhat= "greg.SD",NOM_COV,y="PROM.IE",p=2)
+# CME <- SEL.MODEL(IE.RESULTADO,yhat="GREG.PROM.IE",Sd.yhat= "GREG.SD",NOM_COV,y="PROM.IE",p=2)
 # CME%>%arrange(desc(CME.CONTRL))%>%head()
 
 #########################################################################################################
@@ -107,12 +104,11 @@ IE.RESULTADO$IND<- ifelse(!is.na(IE.RESULTADO$greg.PROM.IE),"ESTIMAR","PRONOSTIC
 ######################################################################################################
 IE.RESULTADO<-IE.RESULTADO %>% dplyr::select(ID_INST,ENTIDAD,PROM.IE,IND,
                                ## Promedios y desviaciones  estimadas por ETC
-                               PROM.greg.ETC,  Sd.greg.PROM,
-                               PROM.HT.ETC,    Sd.HT.PROM,
+#                                PROM.greg.ETC,  Sd.greg.PROM,
+#                                PROM.HT.ETC,    Sd.HT.PROM,
                                ## Promedios y desviaciones  estimadas por IE
-                               greg.PROM.IE,   greg.SD,
-                               HT.PROM.IE  ,   HT.SD,
-                               Med.Comp_C3 ,   Sd.Comp_C3,
+#                                greg.PROM.IE,   greg.SD,
+#                                HT.PROM.IE  ,   HT.SD,
                                Med.Comp_C3 ,   Sd.Comp_C3,
                                ## Covariables del Modelo SAE Ciencia
                                # UNOS,CIENCIAS_5_2014,CIENCIAS_5_2012,LENGUAJE_5_2014

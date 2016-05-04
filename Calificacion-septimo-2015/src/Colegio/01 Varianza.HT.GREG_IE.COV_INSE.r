@@ -30,7 +30,7 @@
 ###################################################################################################
 rm(list = ls())
 ## Definir el directorio de trabajo
-dirpath <-"C:/Users/sguerrero/Dropbox/investigacion icfes/SAE/SAE.git/SAE/Calificacion-septimo-2015"
+dirpath <-"C:/Users/sguerrero/Documents/SAE/Calificacion-septimo-2015"
 ## Definir subcarpetas
 inpath <- "/input"
 outpath <- "/output"
@@ -51,9 +51,9 @@ require(sampling)
 ESTUDIANTES <- read.csv(file = "input/Colegio/Base/ESTUDIANTES.SEPTIMO_INSE.txt",sep="\t",header=T)
 ESTUDIANTES$ID_INST<-as.character(ESTUDIANTES$ID_INST)
 ## Selecional el grupo de interés 
-ESTUDIANTES <- ESTUDIANTES %>% filter(parM==1)%>%dplyr::select(ENTIDAD,ID_INST,PESOS.ESTAB,PesoM,PROM.MAT,INSE)
-AREA="PROM.MAT"
-PESO.ESTUDIANTE ="PesoM"
+ESTUDIANTES <- ESTUDIANTES %>% filter(parL==1)%>%dplyr::select(ENTIDAD,ID_INST,PESOS.ESTAB,PesoL,PROM.LENG,INSE)
+AREA="PROM.LENG"
+PESO.ESTUDIANTE ="PesoL"
 
 ## Imputar datos faltantes
 ESTUDIANTES<-ESTUDIANTES%>%group_by(ID_INST)%>%filter(INSE!="NaN") %>%mutate(INSE2=ifelse(is.na(INSE),mean(INSE,na.rm = T),INSE))%>%
@@ -65,22 +65,20 @@ ESTUDIANTES<-ESTUDIANTES%>%group_by(ID_INST)%>%filter(INSE!="NaN") %>%mutate(INS
 tx_ETC <- read.csv(file = "input/Colegio/Base/Tx_censal_INSE.txt",sep="\t",header=T)
 ###########################################################################################################
 IE.RESULTADO<- ESTUDIANTES%>%group_by(ENTIDAD,ID_INST)%>%
-                              summarise(PROM.IE=mean(PROM.MAT),
-                                        Nhat= sum(PesoM))
+                              summarise(PROM.IE=mean(PROM.LENG))
 ###########################################################################################################
 ## Selección de las ETC que pertenencen a la muestra control
 id.ETC <- unique(as.character(ESTUDIANTES$ENTIDAD))
 ## Función para la estimacióin de la varianza
-source(file = "src/Funciones/03 Varianza HT IE.r")
-
+source(file = "src/Funciones/Var.jk.IE.r")
+source(file = "src/Funciones/E.GREG.IE.r")
 ##########################################################################################################
 
 result <- data.frame(
-  ID_INST=NA, PROM.greg.ETC=NA, Sd.greg.PROM=NA, PROM.HT.ETC=NA,
-  Sd.HT.PROM=NA,  greg.PROM.IE=NA,greg.PROM.sd=NA, greg.JK.sd=NA,
-  greg.SD=NA,HT.PROM.IE=NA, HT.PROM.sd=NA,HT.JK.sd=NA, HT.SD=NA)
+  ID_INST=NA, PROM.greg.ETC=NA, Sd.greg.PROM=NA, cve.greg.ETC=NA, PROM.HT.ETC=NA,  Sd.HT.PROM=NA, cve.HT.ETC=NA,
+  HT.PROM.IE=NA, HT.PROM.sd=NA,   HT.JK.sd=NA,      HT.SD=NA, GREG.PROM.IE=NA, GREG.PROM.sd=NA, GREG.JK.sd=NA,
+  GREG.SD=NA)
 set.seed(19012016)
-
 
 for (i in  id.ETC){
   ## Seleccion de la ETC de interés
@@ -88,11 +86,11 @@ for (i in  id.ETC){
   tx<-tx_ETC%>%filter(ENTIDAD==i)%>%data.frame()
   
   result<-rbind(result,
-                E.GREG.IE(BD.ESTUDIANTES = x,
+                E.GREG.IE(x= x,
                           PESOS.ESTU=PESO.ESTUDIANTE,
                           V_PLAUS = AREA,
-                          ETC=i,xk =c("INSE"),tx = tx,IND ="ID_INST", 
-                method="linear"))
+                          xk =c("INSE"),tx = tx,IND ="ID_INST", 
+                          method="linear"))
 }
 result<-result[-1,]
 #############################################################################################################
@@ -103,34 +101,16 @@ ls()
 ##### ESTIMADOR COMPUESTO ######
 ####################################################################################################
 ########################
-## Caso 1, cuando alhpa < 1
-########################
-lambda = 1
-result$Med.Comp_C1 <- lambda*result$greg.PROM.IE +(1-lambda)*result$HT.PROM.IE
-result$Sd.Comp_C1 <- sqrt(lambda*result$greg.SD^2 +(1-lambda)*result$HT.SD^2)
-########################
-## Caso 2, cuando alhpa = 1
-########################
-lambda = 1 
-result$Med.Comp_C2 <- lambda*result$greg.PROM.IE +(1-lambda)*result$HT.PROM.IE
-result$Sd.Comp_C2 <- sqrt(lambda*result$greg.SD^2 +(1-lambda)*result$HT.SD^2)
-########################
 ## Caso 3, cuando alhpa = 1.5
 ########################
 lambda = 1/1.5
-result$Med.Comp_C3 <- lambda*result$greg.PROM.IE +(1-lambda)*result$HT.PROM.IE
-result$Sd.Comp_C3 <- sqrt(lambda*result$greg.SD^2 +(1-lambda)*result$HT.SD^2)
-########################
-## Caso 4, cuando alhpa = 2
-########################
-lambda = 1/2 
-result$Med.Comp_C4 <- lambda*result$greg.PROM.IE +(1-lambda)*result$HT.PROM.IE
-result$Sd.Comp_C4 <- sqrt(lambda*result$greg.SD^2 +(1-lambda)*result$HT.SD^2)
+result$Med.Comp_C3 <- lambda*result$GREG.PROM.IE +(1-lambda)*result$HT.PROM.IE
+result$Sd.Comp_C3 <- sqrt(lambda*result$GREG.SD^2 +(1-lambda)*result$HT.SD^2)
 
 
 IE.RESULTADO<-merge(IE.RESULTADO,result, by="ID_INST",all.x = T)
 
-save(IE.RESULTADO, file = file.path("output/Colegios/Varianzas Estimadas/IE_2015.PROM.MATEMATICAS_INSE.RData"))
+save(IE.RESULTADO, file = file.path("output/Colegios/Varianzas Estimadas/IE_2015.PROM.LENGUAJE_INSE.RData"))
 #####################################################################################
 ## El paso siguiente se debe realizar cuando las covariables del modelo SAE estan ###
 ## identificadas, en caso contrario debe ejecutar el código                       ###
@@ -158,15 +138,9 @@ save(IE.RESULTADO, file = file.path("output/Colegios/Varianzas Estimadas/IE_2015
 # greg.SD,
 # HT.SD	            :   Aproximación de la varianza 
 
-# Med.Comp_C1,
-# Med.Comp_C2,      :   El promedio estimado mediante el estimador compuesto definido y 
-# Med.Comp_C3,          C_i indica cada uno de los valores posibles de λ.
-# Med.Comp_C4	
+# Med.Comp_C3:          C_i indica cada uno de los valores posibles de λ.
 
-# Sd.Comp_C1,
-# Sd.Comp_C2,
-# Sd.Comp_C3,
-# Sd.Comp_C4	      :  La desviación estándar del estimador compuesto para cada posible valor de λ.
+# Sd.Comp_C3:  La desviación estándar del estimador compuesto para cada posible valor de λ.
 
 ## Estás variables son las que a limentan el modelo SAE 
 #############################################################################################
@@ -210,32 +184,31 @@ IE.RESULTADO<-merge(IE_censal,IE.RESULTADO,by.x="id_institucion",by.y="ID_INST")
 IE.RESULTADO$ENTIDAD<-IE.RESULTADO$entidad
 IE.RESULTADO$ID_INST<-IE.RESULTADO$id_institucion
 IE.RESULTADO$UNOS<-1
-IE.RESULTADO$IND<- ifelse(!is.na(IE.RESULTADO$greg.PROM.IE),"ESTIMAR","PRONOSTICO")
+IE.RESULTADO$IND<- ifelse(!is.na(IE.RESULTADO$GREG.PROM.IE),"ESTIMAR","PRONOSTICO")
 
 ######################################################################################################
 IE.RESULTADO<-IE.RESULTADO %>% dplyr::select(ID_INST,ENTIDAD,PROM.IE,IND,
                                              ## Promedios y desviaciones  estimadas por ETC
-                                             PROM.greg.ETC,  Sd.greg.PROM,
-                                             PROM.HT.ETC,    Sd.HT.PROM,
+                                             #PROM.greg.ETC,  Sd.greg.PROM,
+                                             #PROM.HT.ETC,    Sd.HT.PROM,
                                              ## Promedios y desviaciones  estimadas por IE
-                                             greg.PROM.IE,   greg.SD,
-                                             HT.PROM.IE  ,   HT.SD,
-                                             Med.Comp_C3 ,   Sd.Comp_C3,
+                                             #GREG.PROM.IE,   GREG.SD,
+                                             #HT.PROM.IE  ,   HT.SD,
                                              Med.Comp_C3 ,   Sd.Comp_C3,
                                              ## Covariables del Modelo SAE Ciencia
-                                             # UNOS,CIENCIAS_5_2014,CIENCIAS_5_2012,LENGUAJE_5_2014
+                                              # UNOS,CIENCIAS_5_2014,CIENCIAS_5_2012,LENGUAJE_5_2014
                                              
                                              ## Covariables del Modelo SAE Matematicas
-                                             UNOS,MATEMÁTICAS_5_2014,MATEMÁTICAS_5_2012,PROM_INGLES_20142
+                                             # UNOS,MATEMÁTICAS_5_2014,MATEMÁTICAS_5_2012,PROM_INGLES_20142
                                              
                                              ## Covariables del Modelo SAE Lenguaje
-                                             # UNOS,LENGUAJE_3_2014, LENGUAJE_5_2014, LENGUAJE_9_2014
+                                             UNOS,LENGUAJE_3_2014, LENGUAJE_5_2014, LENGUAJE_9_2014
                                              
                                              ## Covariables del Modelo SAE Competencia
-                                             #                                 UNOS,CIENCIAS_5_2014,	CIENCIAS_9_2014, LENGUAJE_3_2014
+                                                                             # UNOS,CIENCIAS_5_2014,	CIENCIAS_9_2014, LENGUAJE_3_2014
 )
 head(IE.RESULTADO)
 #########################################################################################################
-save(IE.RESULTADO, file = file.path("output/Colegios/Model SAE/IE_2015.PROM.MATEMATICAS_SAE.RData"))
+save(IE.RESULTADO, file = file.path("output/Colegios/Model SAE/IE_2015.PROM.LENGUAJE_SAE.RData"))
 #########################################################################################################
 
